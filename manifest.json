@@ -1,0 +1,7 @@
+{
+    "name": "VRPlatformSpoofer",
+    "description": "Safely hooks internal client property arrays to trigger the official VR headset status badge natively.",
+    "author": "Sovereign",
+    "version": "1.1.0",
+    "main": "index.js"
+}
