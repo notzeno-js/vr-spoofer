@@ -5,24 +5,47 @@
  * @version 1.0.0
  */
 
+// We must import the plugin API utilities to find internal modules securely
+import { webpack } from "@vendetta/modules";
+
+let patch;
+
 export default {
     onStart() {
         try {
-            // Overrides client handshake properties dynamically before connection auth
-            Object.defineProperty(navigator, 'userAgent', {
-                get: () => 'Discord VR/1.0 (Android; Meta Quest 3)',
-                configurable: true
-            });
+            // Locate the internal properties module that Discord uses for the platform handshake
+            const InfoModule = webpack.findByProps("getSuperProperties");
             
-            if (window.DiscordNative) {
-                window.DiscordNative.process.platform = 'vr';
+            if (InfoModule && InfoModule.getSuperProperties) {
+                // Intercept the function to force the custom VR platform string pairs
+                const originalGetSuperProperties = InfoModule.getSuperProperties;
+                
+                InfoModule.getSuperProperties = function(...args) {
+                    const props = originalGetSuperProperties.apply(this, args);
+                    props.os = "android";
+                    props.browser = "Discord VR";
+                    props.device = "Discord VR";
+                    return props;
+                };
+
+                // Save a reference to revert changes safely if the plugin is turned off
+                patch = () => {
+                    InfoModule.getSuperProperties = originalGetSuperProperties;
+                };
+                
+                console.log("[VR-Spoofer] Mobile gateway hooks applied successfully.");
+            } else {
+                console.error("[VR-Spoofer] InfoModule properties target not found.");
             }
-            console.log("[VR-Spoofer] Injected successfully.");
         } catch (e) {
-            console.error("[VR-Spoofer] Failed initialization:", e);
+            console.error("[VR-Spoofer] Failed mobile initialization:", e);
         }
     },
+    
     onStop() {
-        console.log("[VR-Spoofer] Disabled.");
+        if (patch) {
+            patch();
+            console.log("[VR-Spoofer] Disabled and hooks unpatched cleanly.");
+        }
     }
 };
