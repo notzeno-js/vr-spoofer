@@ -1,51 +1,50 @@
 /**
  * @name VRPlatformSpoofer
- * @description Injects structural changes locally inside Kettu to register the native green VR status indicator badge.
+ * @description Safely hooks internal client property arrays to trigger the official VR headset status badge natively.
  * @author Sovereign
- * @version 1.0.0
+ * @version 1.1.0
  */
 
-// We must import the plugin API utilities to find internal modules securely
 import { webpack } from "@vendetta/modules";
 
-let patch;
+let cleanupPatch;
 
 export default {
     onStart() {
         try {
-            // Locate the internal properties module that Discord uses for the platform handshake
-            const InfoModule = webpack.findByProps("getSuperProperties");
+            // Locates the underlying super property tracking module in the mobile client registry
+            const SuperPropertiesModule = webpack.findByProps("getSuperProperties");
             
-            if (InfoModule && InfoModule.getSuperProperties) {
-                // Intercept the function to force the custom VR platform string pairs
-                const originalGetSuperProperties = InfoModule.getSuperProperties;
+            if (SuperPropertiesModule && SuperPropertiesModule.getSuperProperties) {
+                const originalMethod = SuperPropertiesModule.getSuperProperties;
                 
-                InfoModule.getSuperProperties = function(...args) {
-                    const props = originalGetSuperProperties.apply(this, args);
-                    props.os = "android";
-                    props.browser = "Discord VR";
-                    props.device = "Discord VR";
-                    return props;
+                // Intercepts outbound device payloads dynamically
+                SuperPropertiesModule.getSuperProperties = function(...args) {
+                    const superProps = originalMethod.apply(this, args);
+                    superProps.os = "android";
+                    superProps.browser = "Discord VR";
+                    superProps.device = "Discord VR";
+                    return superProps;
                 };
 
-                // Save a reference to revert changes safely if the plugin is turned off
-                patch = () => {
-                    InfoModule.getSuperProperties = originalGetSuperProperties;
+                // Defines a clean exit vector to restore defaults safely if toggled off
+                cleanupPatch = () => {
+                    SuperPropertiesModule.getSuperProperties = originalMethod;
                 };
                 
-                console.log("[VR-Spoofer] Mobile gateway hooks applied successfully.");
+                console.log("[VR-Spoofer] Target modules successfully patched.");
             } else {
-                console.error("[VR-Spoofer] InfoModule properties target not found.");
+                console.error("[VR-Spoofer] Could not locate property parameters in registry mapping.");
             }
-        } catch (e) {
-            console.error("[VR-Spoofer] Failed mobile initialization:", e);
+        } catch (error) {
+            console.error("[VR-Spoofer] Ingestion phase failed:", error);
         }
     },
     
     onStop() {
-        if (patch) {
-            patch();
-            console.log("[VR-Spoofer] Disabled and hooks unpatched cleanly.");
+        if (cleanupPatch) {
+            cleanupPatch();
+            console.log("[VR-Spoofer] Removed client hooks safely.");
         }
     }
 };
